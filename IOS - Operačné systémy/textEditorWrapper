@@ -1,0 +1,184 @@
+#!/bin/bash
+#text editor wrapper
+find_last_eddited ()
+{
+   echo ` awk -v p=$1  '$1 == p' < $WEDI_RC | awk '{print $2}' | tail -n 1` 
+}
+
+start_edditor ()
+{
+   if [ -n $EDITOR ]; then
+      $EDITOR $1;
+   elif [ -n $VISUAL ]; then
+      $VISUAL $1;
+   else
+      ERROR 1
+   fi
+}
+
+ERROR ()
+{
+   echo -n "Error: "
+   if [ 1 -eq $1 ];then
+      echo "Editor not set";
+   elif [ 2 -eq $1 ];then
+      echo "WEDI_RC not set";
+   elif [ 3 -eq $1 ];then 
+      echo "File for wedi logs does not exist";
+   elif [ 4 -eq $1 ];then
+      echo "No file eddited yet in this directory";
+   fi
+   exit 1;
+}
+
+
+if [ -z $WEDI_RC ]; then 
+   ERROR 2
+fi
+
+if [ ! -f $WEDI_RC ]; then
+   ERROR 3
+fi
+
+if [ 1 -eq $# ]; then                             # one argument 
+   if [ -f $1 ]; then                             # arg is file
+      {
+         path=$1;
+         file=${path##*/};
+         dir=${path%%/*};
+         
+         if [ -d $dir ];then
+             echo "$(pwd)/$dir $file $(date +%Y-%m-%d)" >> $WEDI_RC;
+         else 
+            echo "$(pwd) $file $(date +%Y-%m-%d)" >> $WEDI_RC;
+         fi
+         start_edditor $1;
+      }
+   elif [ -d $1 ]; then                           # arg is directory
+      if [ -z `find_last_eddited $(pwd)/$1` ]; then
+         ERROR 4
+      else
+         {
+            var=`find_last_eddited $(pwd)/$1`;
+            echo "$(pwd)/$1 $var $(date +%Y-%m-%d)" >> $WEDI_RC;
+            start_edditor $var;
+         }
+      fi
+   elif [ $1 = "-l" ]; then
+      {
+        while read path file date
+        do
+           if [ -f $file ]; then
+              echo $file
+           fi
+        done < $WEDI_RC |sort|uniq
+      }
+   elif [ $1 = "-m" ]; then
+      {
+         
+         var=` awk -v p=$(pwd) '$1 == p' < $WEDI_RC | awk '{print $2}' | sort | uniq -c | sort -n| tail -n 1| awk '{print $2}'`;
+         if [ -z $var ]; then
+            ERROR 4
+         fi
+         echo "$(pwd) $var $(date +%Y-%m-%d) " >> $WEDI_RC;
+         start_edditor $var;      
+      }
+   else
+      {
+         start_edditor $1;
+         echo "$(pwd) $1 $(date +%Y-%m-%d) " >> $WEDI_RC;
+      }
+   fi      
+fi  
+
+if [ 0 -eq $# ]; then                                 # open last eddited file
+   if [ -z `find_last_eddited $(pwd)` ]; then
+      ERROR 4
+   else
+      {
+         var=`find_last_eddited $(pwd)`;
+         echo "$(pwd) $var $(date +%Y-%m-%d)" >> $WEDI_RC;
+         start_edditor $var;
+      } 
+   fi
+fi
+
+if [ 2 -eq $# ]; then
+   if [ $1 = "-m" ]; then
+      if [ -d $2 ]; then
+         {
+            var=` awk -v p=$(pwd)$2 '$1 == p' < $WEDI_RC | awk '{print $2}' | sort | uniq -c | sort -n| tail -n 1| awk '{print $2}'`;
+            if [ -z $var ];then
+               ERROR 4
+            fi
+            echo "$(pwd) $var $(date +%Y-%m-%d)" >> $WEDI_RC;
+            cd $2;
+            start_edditor $var;
+         }
+       fi
+   elif [ $1 = "-l" ];then
+      if [ -d $dir ]; then
+         while read path file Date
+         do
+            if [ -f "$2/$file" ];then
+               if [ $(pwd)$2 = $path ]  ; then
+                  echo $file
+               fi
+            fi
+         done  < "$WEDI_RC"| sort | uniq 
+      fi
+   elif [ $1 = "-a" ]; then
+      while read path file Date
+      do
+        if [[ "$2" < "$Date" ]] || [[ "$2" = "$Date" ]] ; then
+           if [ -f $file ]; then
+              echo $file;
+           fi
+        fi
+      done < "$WEDI_RC" |sort |uniq
+   
+    elif [ $1 = "-b" ]; then
+      while read path file Date
+      do
+        if [[ "$2" > "$Date" ]] || [[ "$2" = "$Date" ]]; then
+           if [ -f $file ]; then
+               echo $file;
+           fi
+        fi
+      done < "$WEDI_RC" |sort |uniq
+   fi
+fi
+
+if [ 3 -eq $# ];then
+   if [ -d $3 ]; then
+      while read path file Date
+      do
+         if [ -f "$3/$file" ];then
+            if [ "$(pwd)/$3" = $path ]  ; then
+               if [ $1 = "-a" ]; then
+                  if [[ "$2" < "$Date" ]] || [[ "$2" = "$Date" ]] ; then
+                     echo $file
+                  fi
+               elif [ $1 = "-b" ]; then
+                  if [[ "$2" > "$Date" ]] || [[ "$2" = "$Date" ]] ; then
+                     echo $file
+                  fi
+               fi
+            fi
+         fi
+      done  < "$WEDI_RC" | sort |uniq
+   fi
+fi
+
+ 
+   
+
+
+
+
+
+
+
+
+
+          
